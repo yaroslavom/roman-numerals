@@ -1,0 +1,53 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  This template launches an EC2 instance which hosts the Roman Numerals Converter App.
+  
+Parameters:
+  KeyPairParameter:
+    Description: Select your key pair.
+    Type: AWS::EC2::KeyPair::KeyName
+
+Resources:
+  myWebServer:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64
+      InstanceType: t2.micro
+      KeyName: !Ref KeyPairParameter
+      SecurityGroups: 
+        - !Ref mySG
+      Tags: 
+        - Key: Name
+          Value: !Sub Web Server of ${AWS::StackName}
+      UserData: !Base64 |
+        #! /bin/bash
+        yum update -y
+        yum install python3-pip -y
+        pip3 install Flask
+        cd /home/ec2-user
+        wget -P templates https://raw.githubusercontent.com/guile-clarusway/roman-numerals/refs/heads/main/templates/index.html
+        wget -P templates https://raw.githubusercontent.com/guile-clarusway/roman-numerals/refs/heads/main/templates/result.html
+        wget https://raw.githubusercontent.com/guile-clarusway/roman-numerals/refs/heads/main/app.py
+        python3 app.py
+
+  mySG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allows SSH and HTTP. # Required
+      SecurityGroupIngress: 
+        - CidrIp: 0.0.0.0/0
+          FromPort: 22
+          IpProtocol: tcp
+          ToPort: 22
+        - CidrIp: 0.0.0.0/0
+          FromPort: 80
+          IpProtocol: tcp
+          ToPort: 80
+
+
+Outputs:
+  WebSiteURL:
+    Description: URL of the website
+    Value: !Sub
+      - http://${PublicDNS}
+      - PublicDNS: !GetAtt myWebServer.PublicDnsName
